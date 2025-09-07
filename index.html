@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SparkFrame - To Live Is to Create, To Create Is to Be</title>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?display=swap&family=Noto+Sans:wght@400;500;700;900&family=Spline+Sans:wght@400;500;700" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <style type="text/tailwindcss">
+      :root {
+        --primary-color: #38e07b;
+        --bg-main: #111714;
+        --bg-content: #18201C;
+        --bg-inset: #111714;
+        --border-color: #29382f;
+        --border-color-light: #3d5245;
+        --text-dim: #9eb7a8;
+        --checkbox-tick-svg: url('data:image/svg+xml,%3csvg viewBox=%270 0 16 16%27 fill=%27rgb(17,23,20)%27 xmlns=%27http://www.w3.org/2000/svg%27%3e%3cpath d=%27M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z%27/%3e%3c/svg%3e');
+      }
+      * {
+        transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        transition-duration: 200ms;
+      }
+       /* Custom Scrollbar for Webkit Browsers */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--bg-main);
+      }
+      ::-webkit-scrollbar-thumb {
+        background-color: var(--border-color-light);
+        border-radius: 10px;
+        border: 2px solid var(--bg-main);
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background-color: var(--primary-color);
+      }
+      .timeline-item:not(:last-child) .timeline-connector {
+        display: block;
+      }
+      .timeline-item-storyboard:not(:last-child)::after {
+        content: '';
+        @apply absolute left-[1.125rem] top-10 h-[calc(100%-1.5rem)] w-0.5 bg-[var(--border-color)];
+      }
+       .group:focus-within .group-focus-within\:flex {
+        display: flex;
+      }
+       .group:focus-within .group-focus-within\:block {
+        display: block;
+      }
+      .grid-bg {
+        background-image: linear-gradient(to right, #1a221a 1px, transparent 1px), linear-gradient(to bottom, #1a221a 1px, transparent 1px);
+        background-size: 40px 40px;
+      }
+
+      /* Storyboard Transition Animations */
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes slideIn { from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+      @keyframes dissolveIn { from { opacity: 0; filter: blur(8px); } to { opacity: 1; filter: blur(0); } }
+
+      .transition-fade { animation: fadeIn 0.6s ease-in-out; }
+      .transition-slide { animation: slideIn 0.6s ease-in-out; }
+      .transition-dissolve { animation: dissolveIn 0.6s ease-in-out; }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.17.0",
+    "react-hot-toast": "https://aistudiocdn.com/react-hot-toast@^2.4.2"
+  }
+}
+</script>
+</head>
+  <body class="bg-[var(--bg-main)] text-white" style='font-family: "Spline Sans", "Noto Sans", sans-serif;'>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
