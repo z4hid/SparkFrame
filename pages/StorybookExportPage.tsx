@@ -55,6 +55,10 @@ const StorybookExportPage: React.FC = () => {
 
     try {
         const [{ jsPDF }, html2canvas] = await Promise.all([loadJsPDF(), loadHtml2Canvas()]);
+        // Ensure webfonts are ready to avoid layout shifts in captures
+        if ((document as any).fonts?.ready) {
+            try { await (document as any).fonts.ready; } catch {}
+        }
         
         const pdf = new jsPDF({ orientation: 'p', unit: 'px', format: 'a4' });
         const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -79,7 +83,12 @@ const StorybookExportPage: React.FC = () => {
                 <p style="font-size: 16px; color: #9eb7a8;">${summary}</p>
             </div>
         `;
-        const titleCanvas = await html2canvas(tempContainer.firstChild as HTMLElement, { useCORS: true, scale: 2 });
+        // Yield to layout engine to ensure content is measurable
+        await new Promise(r => requestAnimationFrame(r));
+        await new Promise(r => requestAnimationFrame(r));
+        const titleRoot = tempContainer.firstElementChild as HTMLElement | null;
+        if (!titleRoot) throw new Error('Failed to build title page');
+        const titleCanvas = await html2canvas(titleRoot, { useCORS: true, scale: 2, backgroundColor: '#111714' });
         const titleImgData = titleCanvas.toDataURL('image/png');
         pdf.addImage(titleImgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
 
@@ -111,7 +120,11 @@ const StorybookExportPage: React.FC = () => {
                 }
             });
 
-            const sceneCanvas = await html2canvas(tempContainer.firstChild as HTMLElement, { useCORS: true, scale: 2 });
+            // Yield to ensure layout is stable
+            await new Promise(r => requestAnimationFrame(r));
+            const sceneRoot = tempContainer.firstElementChild as HTMLElement | null;
+            if (!sceneRoot) continue;
+            const sceneCanvas = await html2canvas(sceneRoot, { useCORS: true, scale: 2, backgroundColor: '#111714' });
             const sceneImgData = sceneCanvas.toDataURL('image/png');
             const imgProps = pdf.getImageProperties(sceneImgData);
             const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
