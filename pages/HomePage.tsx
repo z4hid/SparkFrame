@@ -98,14 +98,14 @@ const HomePage: React.FC = () => {
 
     return (
         <div className="relative flex size-full min-h-screen flex-col overflow-x-hidden bg-[var(--bg-main)] text-white">
-            <header className="sticky top-0 z-50 bg-[var(--bg-main)]/80 backdrop-blur-sm border-b border-[var(--border-color)]">
+            <header className="sticky top-0 z-50 bg-[var(--bg-main)]/80 backdrop-blur-sm border-b border-[var(--border-color)]" role="banner">
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex h-20 items-center justify-between">
                         <div className="flex items-center gap-4">
                             <SparkFrameIcon className="h-10 w-10 text-[var(--primary-color)]" />
                             <h1 className="text-2xl font-bold leading-tight tracking-tighter">SparkFrame</h1>
                         </div>
-                        <nav className="hidden md:flex items-center gap-8 text-sm font-medium">
+                        <nav className="hidden md:flex items-center gap-8 text-sm font-medium" role="navigation" aria-label="Primary">
                             <a onClick={() => navigate(Page.GENERATOR)} className="text-gray-300 hover:text-[var(--primary-color)] transition-colors cursor-pointer">Scene Generator</a>
                             <a onClick={() => navigate(Page.BLUEPRINT)} className="text-gray-300 hover:text-[var(--primary-color)] transition-colors cursor-pointer">Character Blueprints</a>
                             <a onClick={() => navigate(Page.STORYBOARD)} className="text-gray-300 hover:text-[var(--primary-color)] transition-colors cursor-pointer">Storyboard</a>

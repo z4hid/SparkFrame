@@ -4,7 +4,7 @@ import { StoryboardScene, Scene, Page, Character, TransitionType } from '../type
 import { downloadFile } from '../utils/fileUtils';
 
 const StoryboardPage: React.FC = () => {
-    const { storyboard, characters, navigate, updateSceneTransition } = useContext(AppContext);
+    const { storyboard, characters, navigate, updateSceneTransition, deleteSceneFromStoryboard } = useContext(AppContext);
     const [selectedScene, setSelectedScene] = useState<StoryboardScene | null>(storyboard.length > 0 ? storyboard[0] : null);
     const [animationClass, setAnimationClass] = useState('');
     const prevSceneRef = useRef<StoryboardScene | null>(null);
@@ -107,7 +107,7 @@ const StoryboardPage: React.FC = () => {
     }
 
     return (
-        <div className="flex-1 px-10 py-8">
+        <div className="flex-1 px-4 sm:px-6 lg:px-10 py-6 lg:py-8">
             <div className="max-w-7xl mx-auto">
                 <div className="flex justify-between items-start mb-12">
                     <div>
@@ -123,8 +123,8 @@ const StoryboardPage: React.FC = () => {
                         <span>Play Cinematic</span>
                     </button>
                 </div>
-                <div className="flex gap-16">
-                    <div className="w-2/3">
+                <div className="flex flex-col lg:flex-row gap-8 lg:gap-16">
+                    <div className="w-full lg:w-2/3">
                         <div className="space-y-8">
                             {storyboard.map((scene, index) => (
                                 <div key={scene.id} className="flex gap-6 relative timeline-item-storyboard">
@@ -136,12 +136,20 @@ const StoryboardPage: React.FC = () => {
                                             <h3 className="text-xl font-semibold text-white">{scene.title}</h3>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-sm text-[var(--text-dim)]">Version {scene.versions.length}</span>
+                                                <button
+                                                    onClick={() => deleteSceneFromStoryboard(scene.id)}
+                                                    title="Delete this scene"
+                                                    className="rounded-md h-8 px-3 bg-red-600/80 text-white text-xs font-semibold hover:bg-red-600"
+                                                >
+                                                    Delete
+                                                </button>
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                            {scene.versions.slice(-3).reverse().map(version => (
                                                 <div key={version.id} className="relative group cursor-pointer" onClick={() => setSelectedScene(scene)}>
                                                     <img 
+                                                        loading="lazy"
                                                         alt={scene.title + " thumbnail"}
                                                         className={`rounded-lg aspect-video object-cover w-full border-2 transition-all duration-300 ${selectedScene?.id === scene.id && version.isCurrent ? 'border-[var(--primary-color)] shadow-lg shadow-[var(--primary-color)]/20' : 'border-transparent group-hover:border-[var(--primary-color)]'}`}
                                                         src={version.imageUrl}
@@ -176,11 +184,11 @@ const StoryboardPage: React.FC = () => {
                         </div>
                     </div>
                     {selectedScene && currentVersion && (
-                        <aside className="w-1/3 h-fit sticky top-8">
+                        <aside className="w-full lg:w-1/3 h-fit lg:sticky lg:top-8">
                             <div key={selectedScene.id} className={`bg-[var(--bg-content)] rounded-xl p-6 border border-[var(--border-color)] ${animationClass}`}>
                                 <h3 className="text-2xl font-bold mb-4 text-white">{selectedScene.title}</h3>
                                 <div className="relative mb-4 group">
-                                    <img alt="Selected scene" className="rounded-lg w-full aspect-video object-cover" src={currentVersion?.imageUrl} />
+                                    <img loading="lazy" alt="Selected scene" className="rounded-lg w-full aspect-video object-cover" src={currentVersion?.imageUrl} />
                                     <div className="absolute inset-0 bg-black/40 rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4">
                                         <button onClick={handleEdit} className="bg-black/50 backdrop-blur-sm p-3 rounded-full text-white hover:bg-white/20" title="Edit Scene">
                                             <span className="material-symbols-outlined">edit</span>

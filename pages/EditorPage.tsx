@@ -98,7 +98,7 @@ const EditorPage: React.FC = () => {
     return (
         <div className="flex h-full flex-col text-white bg-[var(--bg-main)]">
             <main className="flex flex-1 overflow-hidden">
-                <div className="flex flex-1 flex-col gap-6 p-8">
+                <div className="flex flex-1 flex-col gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8">
                     <div className="flex flex-col gap-1.5">
                         <h2 className="text-4xl font-bold tracking-tight">Conversational Edits</h2>
                         <p className="text-lg text-[var(--text-dim)]">Refine your scene with natural language. Describe the changes you want, and SparkFrame will apply them.</p>
@@ -110,25 +110,25 @@ const EditorPage: React.FC = () => {
                             className="max-w-full max-h-full object-contain rounded-lg"
                         />
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 sm:gap-4">
                         <div className="relative flex-1">
                             <span className="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-[var(--text-dim)]"> edit_note </span>
                             <input
                                 value={editPrompt}
                                 onChange={(e) => setEditPrompt(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleApplyChanges()}
-                                className="form-input w-full rounded-full border-2 border-[var(--border-color-light)] bg-[var(--bg-content)] h-14 pl-14 pr-6 text-base placeholder:text-[var(--text-dim)] focus:border-[var(--primary-color)] focus:ring-[var(--primary-color)]"
+                                className="form-input w-full rounded-full border-2 border-[var(--border-color-light)] bg-[var(--bg-content)] h-12 sm:h-14 pl-14 pr-6 text-base placeholder:text-[var(--text-dim)] focus:border-[var(--primary-color)] focus:ring-[var(--primary-color)]"
                                 placeholder='e.g., "add a glowing sword" or "make it nighttime"'
                                 type="text"
                                 disabled={isLoading}
                             />
                         </div>
-                        <button onClick={handleApplyChanges} disabled={isLoading || !editPrompt} className="flex items-center justify-center rounded-full h-14 px-8 bg-[var(--primary-color)] text-[var(--bg-inset)] text-base font-bold tracking-wide hover:opacity-80 disabled:opacity-50">
+                        <button onClick={handleApplyChanges} disabled={isLoading || !editPrompt} className="flex items-center justify-center rounded-full h-12 sm:h-14 px-6 sm:px-8 bg-[var(--primary-color)] text-[var(--bg-inset)] text-base font-bold tracking-wide hover:opacity-80 disabled:opacity-50">
                             {isLoading ? 'Applying...' : 'Apply Changes'}
                         </button>
                     </div>
                 </div>
-                <div className={`relative transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-[400px]' : 'w-0'}`}>
+                <div className={`relative transition-all duration-300 ease-in-out hidden lg:block ${isSidebarOpen ? 'w-[400px]' : 'w-0'}`}>
                     <button
                         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                         className="absolute top-8 -left-4 z-10 bg-[var(--border-color)] hover:bg-[var(--border-color-light)] text-white rounded-full h-8 w-8 flex items-center justify-center border-2 border-[var(--bg-main)]"

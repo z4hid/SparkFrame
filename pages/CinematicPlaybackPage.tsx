@@ -94,8 +94,7 @@ const CinematicPlaybackPage: React.FC = () => {
                 const scene = storyboard[i];
                 const version = scene.versions.find(v => v.isCurrent);
                 if (version) {
-                    const extension = version.mimeType.split('/')[1] || 'png';
-                    const fileName = `scene_${String(i + 1).padStart(3, '0')}.${extension}`;
+                    const fileName = `scene_${String(i + 1).padStart(3, '0')}.png`;
                     zip.file(fileName, version.base64Image, { base64: true });
                     storyText += `--- SCENE ${i + 1} ---\n`;
                     storyText += `Title: ${scene.title}\n`;
@@ -161,34 +160,41 @@ const CinematicPlaybackPage: React.FC = () => {
                     <div className="w-full h-2 bg-[var(--border-color)] rounded-full mb-4">
                         <div className="h-full bg-[var(--primary-color)] rounded-full" style={{ width: `${progress}%`, transition: 'width 100ms linear' }}></div>
                     </div>
-                    <div className="bg-[var(--bg-content)] rounded-xl p-3 border border-[var(--border-color)]">
-                        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                                <button onClick={handlePrev} className="flex items-center justify-center rounded-md h-12 w-12 bg-[var(--border-color)] text-white hover:bg-[var(--border-color-light)]">
-                                    <span className="material-symbols-outlined">skip_previous</span>
-                                </button>
-                                <button onClick={handleTogglePlay} className="flex items-center justify-center rounded-md h-12 w-24 bg-[var(--primary-color)] text-[var(--bg-inset)] font-bold hover:bg-opacity-90">
-                                    <span className="material-symbols-outlined mr-1">{isPlaying ? 'pause' : 'play_arrow'}</span>
-                                    <span>{isPlaying ? 'Pause' : 'Play'}</span>
-                                </button>
-                                <button onClick={handleNext} className="flex items-center justify-center rounded-md h-12 w-12 bg-[var(--border-color)] text-white hover:bg-[var(--border-color-light)]">
-                                    <span className="material-symbols-outlined">skip_next</span>
-                                </button>
+                    <div className="bg-[var(--bg-content)] rounded-xl p-3 md:p-4 border border-[var(--border-color)]">
+                        <div className="flex flex-col gap-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2">
+                                    <button onClick={handlePrev} disabled={storyboard.length <= 1} className="flex items-center justify-center rounded-md h-10 w-10 md:h-12 md:w-12 bg-[var(--border-color)] text-white hover:bg-[var(--border-color-light)] disabled:opacity-40">
+                                        <span className="material-symbols-outlined">skip_previous</span>
+                                    </button>
+                                    <button onClick={handleTogglePlay} className="flex items-center justify-center rounded-full h-10 md:h-12 px-5 md:px-6 bg-[var(--primary-color)] text-[var(--bg-inset)] font-bold hover:bg-opacity-90">
+                                        <span className="material-symbols-outlined mr-1">{isPlaying ? 'pause' : 'play_arrow'}</span>
+                                        <span>{isPlaying ? 'Pause' : 'Play'}</span>
+                                    </button>
+                                    <button onClick={handleNext} disabled={storyboard.length <= 1} className="flex items-center justify-center rounded-md h-10 w-10 md:h-12 md:w-12 bg-[var(--border-color)] text-white hover:bg-[var(--border-color-light)] disabled:opacity-40">
+                                        <span className="material-symbols-outlined">skip_next</span>
+                                    </button>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <label className="hidden md:block text-xs text-[var(--text-dim)]">Speed</label>
+                                    <select value={playbackSpeed} onChange={(e) => setPlaybackSpeed(Number(e.target.value))} className="form-select rounded-md bg-[var(--border-color)] border-transparent focus:ring-[var(--primary-color)] focus:border-[var(--primary-color)] text-white text-sm py-1 pl-2 pr-8 h-10 md:h-12">
+                                        <option value={0.5}>0.5x</option>
+                                        <option value={1.0}>1.0x</option>
+                                        <option value={1.5}>1.5x</option>
+                                        <option value={2.0}>2.0x</option>
+                                    </select>
+                                    <button onClick={handleToggleFullScreen} className="flex items-center justify-center rounded-md h-10 w-10 md:h-12 md:w-12 bg-[var(--border-color)] text-white hover:bg-[var(--border-color-light)]">
+                                        <span className="material-symbols-outlined">{isFullScreen ? 'fullscreen_exit' : 'fullscreen'}</span>
+                                    </button>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-4 w-full md:w-auto">
-                                <span className="text-sm font-medium">{currentIndex + 1} / {storyboard.length}</span>
+                            <div className="flex items-center gap-3">
+                                {storyboard.length > 1 && (
+                                  <span className="inline-flex items-center rounded-full px-3 py-1 text-xs md:text-sm bg-black/30 border border-[var(--border-color)] text-white">
+                                    Scene {currentIndex + 1} of {storyboard.length}
+                                  </span>
+                                )}
                                 <input type="range" min="0" max={storyboard.length - 1} value={currentIndex} onChange={handleSeek} className="w-full h-2 bg-[var(--border-color)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)]" />
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <select value={playbackSpeed} onChange={(e) => setPlaybackSpeed(Number(e.target.value))} className="form-select rounded-md bg-[var(--border-color)] border-transparent focus:ring-[var(--primary-color)] focus:border-[var(--primary-color)] text-white text-sm py-1 pl-2 pr-8 h-12">
-                                    <option value={0.5}>0.5x</option>
-                                    <option value={1.0}>1.0x</option>
-                                    <option value={1.5}>1.5x</option>
-                                    <option value={2.0}>2.0x</option>
-                                </select>
-                                <button onClick={handleToggleFullScreen} className="flex items-center justify-center rounded-md h-12 w-12 bg-[var(--border-color)] text-white hover:bg-[var(--border-color-light)]">
-                                    <span className="material-symbols-outlined">{isFullScreen ? 'fullscreen_exit' : 'fullscreen'}</span>
-                                </button>
                             </div>
                         </div>
                     </div>

@@ -19,7 +19,6 @@ const ComicExportPage: React.FC = () => {
     const [selectedPanelInstanceId, setSelectedPanelInstanceId] = useState<string | null>(null);
     
     const [captionText, setCaptionText] = useState('');
-    const [speechBubbleStyle, setSpeechBubbleStyle] = useState('Caption Box');
     const [editPrompt, setEditPrompt] = useState('');
 
     const [newPanelPrompt, setNewPanelPrompt] = useState('');
@@ -127,8 +126,8 @@ const ComicExportPage: React.FC = () => {
 
         setIsEditing(true);
         try {
-            const result = await editImage(panelToEdit.base64Image, panelToEdit.mimeType, editPrompt, []);
-            const newImageUrl = `data:${result.mimeType};base64,${result.base64Image}`;
+            const result = await editImage(panelToEdit.base64Image, panelToEdit.mimeType, editPrompt, [], panelToEdit.imageUrl?.startsWith('/generated/') ? panelToEdit.imageUrl : undefined);
+            const newImageUrl = result.fileUrl ? result.fileUrl : `data:${result.mimeType};base64,${result.base64Image}`;
             const updatedPanel: ComicPanel = { ...panelToEdit, imageUrl: newImageUrl, base64Image: result.base64Image, mimeType: result.mimeType };
             setComicPanels(prev => prev.map(p => p.instanceId === selectedPanelInstanceId ? updatedPanel : p));
             setEditPrompt('');
@@ -149,7 +148,7 @@ const ComicExportPage: React.FC = () => {
             setSelectedPanelInstanceId(null); // Deselect panel before export
             await new Promise(resolve => setTimeout(resolve, 100)); // wait for re-render
             
-            const canvas = await html2canvas(previewRef.current!, { useCORS: true, backgroundColor: '#18201C' });
+            const canvas = await html2canvas(previewRef.current!, { useCORS: true, backgroundColor: '#0f172a' });
             const link = document.createElement('a');
             link.download = `SparkFrame-Comic-${Date.now()}.png`;
             link.href = canvas.toDataURL();
@@ -178,14 +177,14 @@ const ComicExportPage: React.FC = () => {
     const layoutClasses = { Classic: 'grid-cols-2 gap-4 p-4', Modern: 'grid-cols-3 gap-2 p-2', Minimalist: 'grid-cols-1 gap-6 p-6' };
 
     return (
-        <div className="flex-grow px-10 py-8">
+        <div className="flex-grow px-4 sm:px-6 lg:px-10 py-6 lg:py-8">
             <div className="mx-auto max-w-7xl">
                  <div className="mb-8">
                     <h2 className="text-4xl font-bold tracking-tight">Comic Book Exporter</h2>
                     <p className="text-[var(--text-dim)] mt-2 text-lg">Arrange panels, add text, and export your comic page.</p>
                 </div>
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-12">
-                    <div className="xl:col-span-1 space-y-8">
+                <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 xl:gap-12">
+                    <div className="xl:col-span-1 space-y-6 xl:space-y-8">
                         {/* Controls */}
                         <section>
                             <h3 className="text-xl font-bold tracking-tight mb-4">1. Add Panels</h3>
@@ -214,7 +213,7 @@ const ComicExportPage: React.FC = () => {
                             <h3 className="text-xl font-bold tracking-tight mb-4">2. Edit Selected Panel</h3>
                             <div className={`space-y-6 rounded-lg bg-[var(--bg-content)] border border-[var(--border-color)] p-4 ${!selectedPanelInstanceId ? 'opacity-50 pointer-events-none' : ''}`}>
                                 <p className="text-sm text-[var(--text-dim)] -mb-2">{selectedPanelInstanceId ? 'Editing selected panel.' : 'Select a panel from the preview to edit it.'}</p>
-                                
+
                                 <div>
                                     <h4 className="font-semibold mb-2 text-white">Edit Image with AI</h4>
                                     <textarea disabled={isEditing} value={editPrompt} onChange={e => setEditPrompt(e.target.value)} className="form-textarea block w-full rounded-lg text-white focus:outline-none focus:ring-1 focus:ring-[var(--primary-color)] border border-[var(--border-color-light)] bg-[var(--bg-inset)] h-20 p-3 placeholder:text-[var(--text-dim)] resize-y" placeholder="e.g., 'Make it nighttime'"></textarea>
@@ -231,9 +230,11 @@ const ComicExportPage: React.FC = () => {
                                             <span className={`material-symbols-outlined ${isTextLoading ? 'animate-spin' : ''}`}>{isTextLoading ? 'sync' : 'auto_awesome'}</span>
                                         </button>
                                     </div>
-                                    <button onClick={handleAddCaption} disabled={!captionText.trim()} className="mt-2 w-full flex items-center justify-center gap-2 rounded-full h-10 bg-[var(--border-color)] text-white font-bold hover:bg-[var(--border-color-light)] disabled:opacity-50">
-                                       Add Text to Panel
-                                    </button>
+                                    <div className="grid grid-cols-2 gap-2 mt-2">
+                                        <button onClick={handleAddCaption} disabled={!captionText.trim()} className="w-full flex items-center justify-center gap-2 rounded-full h-10 bg-[var(--border-color)] text-white font-bold hover:bg-[var(--border-color-light)] disabled:opacity-50">
+                                        Add Caption Strip
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </section>
@@ -245,7 +246,7 @@ const ComicExportPage: React.FC = () => {
                                 <h3 className="text-xl font-bold tracking-tight">3. Arrange & Export</h3>
                                 <div className="flex flex-wrap gap-2 mt-2">
                                     {(['Classic', 'Modern', 'Minimalist'] as LayoutOption[]).map(l => (
-                                        <label key={l} className="flex items-center justify-center rounded-full border-2 border-[var(--border-color)] px-4 py-1 text-white cursor-pointer has-[:checked]:border-[var(--primary-color)] has-[:checked]:bg-green-900/20 text-sm">
+                                        <label key={l} className="flex items-center justify-center rounded-full border-2 border-[var(--border-color)] px-4 py-1 text-white cursor-pointer has-[:checked]:border-[var(--primary-color)] has-[:checked]:bg-blue-900/20 text-sm">
                                             <input checked={layout === l} onChange={() => setLayout(l)} className="sr-only" name="layout" type="radio" />
                                             <span>{l}</span>
                                         </label>
@@ -256,13 +257,15 @@ const ComicExportPage: React.FC = () => {
                                 {isExporting ? 'Exporting...' : <><span className="material-symbols-outlined">download</span><span className="truncate">Export as Image</span></>}
                             </button>
                         </div>
-                        <div ref={previewRef} className={`w-full bg-[var(--bg-content)] rounded-lg border border-[var(--border-color)] min-h-[600px] grid ${layoutClasses[layout]}`}>
+                        <div ref={previewRef} className={`w-full bg-[var(--bg-content)] rounded-lg border border-[var(--border-color)] min-h-[400px] sm:min-h-[500px] lg:min-h-[600px] grid ${layoutClasses[layout]}`}>
                             {comicPanels.map((panel, index) => (
                                 <div 
                                     key={panel.instanceId} draggable onDragStart={(e) => handleDragStart(e, index)} onDragEnter={(e) => handleDragEnter(e, index)} onDragEnd={handleReorder} onDragOver={(e) => e.preventDefault()}
                                     onClick={() => setSelectedPanelInstanceId(panel.instanceId)}
                                     className={`group relative cursor-grab rounded overflow-hidden aspect-square bg-cover bg-center border-4 ${selectedPanelInstanceId === panel.instanceId ? 'border-[var(--primary-color)]' : 'border-transparent'}`}
                                     style={{ backgroundImage: `url("${panel.imageUrl}")` }}>
+                                    {/* Bubble overlay removed for time constraints */}
+
                                     {panel.caption && (
                                         <div className="absolute bottom-0 left-0 right-0 bg-white/90 text-black p-2 text-sm text-center font-bold" style={{fontFamily: 'Comic Sans MS, cursive'}}>
                                             {panel.caption}

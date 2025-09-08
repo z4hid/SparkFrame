@@ -2,7 +2,7 @@
 import React, { useState, useContext, useEffect, useRef } from 'react';
 import { AppContext } from '../context/AppContext';
 import { Page, Character, Scene } from '../types';
-import { generateImageFromText, generateInspirationalPrompt } from '../services/geminiService';
+import { generateImageFromText, generateInspirationalPrompt, validateUserPrompt } from '../services/geminiService';
 import { downloadFile, fileToBase64 } from '../utils/fileUtils';
 import toast from 'react-hot-toast';
 
@@ -23,7 +23,7 @@ const GeneratorPage: React.FC = () => {
   const [status, setStatus] = useState('Ready to generate or refine your scene.');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState(loadingMessages[0]);
-  const [styleRefImage, setStyleRefImage] = useState<{ file: File; url: string } | null>(null);
+  const [styleRefImages, setStyleRefImages] = useState<{ file: File; url: string }[]>([]);
   const styleFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -83,26 +83,22 @@ const GeneratorPage: React.FC = () => {
     setGeneratedImage(null);
     updateActiveScene(null);
     if(styleFileInputRef.current) styleFileInputRef.current.value = "";
-    handleClearStyleRef();
+    handleClearStyleRefs();
     setStatus('Ready for a new scene.');
     toast('Canvas cleared for a new scene!');
 };
 
   const handleStyleRefChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setStyleRefImage({
-        file,
-        url: URL.createObjectURL(file),
-      });
+    const files = event.target.files ? Array.from(event.target.files) : [];
+    if (files.length > 0) {
+      const next = files.map((file) => ({ file, url: URL.createObjectURL(file) }));
+      setStyleRefImages(prev => [...prev, ...next].slice(0, 5));
     }
   };
 
-  const handleClearStyleRef = () => {
-    if (styleRefImage) {
-      URL.revokeObjectURL(styleRefImage.url);
-    }
-    setStyleRefImage(null);
+  const handleClearStyleRefs = () => {
+    styleRefImages.forEach(img => URL.revokeObjectURL(img.url));
+    setStyleRefImages([]);
   };
 
   const handleGenerate = async () => {
@@ -110,17 +106,21 @@ const GeneratorPage: React.FC = () => {
       toast.error("Please enter a scene description.");
       return;
     }
+    const v = validateUserPrompt(sceneDescription);
+    if (!v.ok) {
+      toast.error(v.reason || 'Invalid prompt.');
+      return;
+    }
     setIsLoading(true);
     setStatus('Generating your scene... this can take a moment.');
     try {
         const chars = characters.filter(c => selectedCharacters.has(c.id));
         
-        const styleImagePayload = styleRefImage ? { 
-            base64: await fileToBase64(styleRefImage.file), 
-            mimeType: styleRefImage.file.type 
-        } : null;
+        const styleImagesPayload = styleRefImages.length > 0 ? await Promise.all(
+            styleRefImages.map(async (s) => ({ base64: await fileToBase64(s.file), mimeType: s.file.type }))
+        ) : null;
 
-        const result = await generateImageFromText(sceneDescription, chars, styleImagePayload);
+        const result = await generateImageFromText(sceneDescription, chars, styleImagesPayload);
         const newImageUrl = `data:${result.mimeType};base64,${result.base64Image}`;
         setGeneratedImage(newImageUrl);
         const newScene: Scene = {
@@ -144,8 +144,53 @@ const GeneratorPage: React.FC = () => {
         setStatus('Scene generated successfully.');
         toast.success('Scene generated successfully!');
     } catch(error: any) {
-        setStatus('Failed to generate image. Please try again.');
-        toast.error(error.message || 'Failed to generate image. Please try again.');
+        if (error?.status === 429 && error?.meta?.minuteResetInSeconds) {
+          let remaining = Number(error.meta.minuteResetInSeconds) || 10;
+          setStatus(`Rate limited. Retrying in ${remaining}s...`);
+          const timer = setInterval(async () => {
+            remaining -= 1;
+            setStatus(`Rate limited. Retrying in ${remaining}s...`);
+            if (remaining <= 0) {
+              clearInterval(timer);
+              // auto-retry once
+              try {
+                const chars = characters.filter(c => selectedCharacters.has(c.id));
+                const styleImagesPayload = styleRefImages.length > 0 ? await Promise.all(
+                    styleRefImages.map(async (s) => ({ base64: await fileToBase64(s.file), mimeType: s.file.type }))
+                ) : null;
+                const result = await generateImageFromText(sceneDescription, chars, styleImagesPayload);
+                const newImageUrl = `data:${result.mimeType};base64,${result.base64Image}`;
+                setGeneratedImage(newImageUrl);
+                const newScene: Scene = {
+                    id: `scene-${Date.now()}`,
+                    description: sceneDescription,
+                    narrative: sceneDescription,
+                    imageUrl: newImageUrl,
+                    base64Image: result.base64Image,
+                    mimeType: result.mimeType,
+                    characters: chars,
+                    characterIds: chars.map(c => c.id),
+                    editHistory: [{ id: 'edit-0', prompt: 'Original Image', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }],
+                    imageHistory: [{
+                    imageUrl: newImageUrl,
+                    base64Image: result.base64Image,
+                    mimeType: result.mimeType,
+                    }]
+                };
+                updateActiveScene(newScene);
+                addSceneToStoryboard(newScene);
+                setStatus('Scene generated successfully.');
+                toast.success('Scene generated successfully!');
+              } catch (e: any) {
+                setStatus('Failed to generate image after retry. Please try again.');
+                toast.error(e?.message || 'Failed to generate image after retry.');
+              }
+            }
+          }, 1000);
+        } else {
+          setStatus('Failed to generate image. Please try again.');
+          toast.error(error.message || 'Failed to generate image. Please try again.');
+        }
     } finally {
         setIsLoading(false);
     }
@@ -185,7 +230,7 @@ const GeneratorPage: React.FC = () => {
 
   return (
     <div className="flex flex-1 bg-[var(--bg-main)]">
-      <aside className="w-96 flex-shrink-0 border-r border-[var(--border-color)] p-8 flex flex-col gap-8 bg-[var(--bg-content)]">
+      <aside className="hidden lg:flex w-96 flex-shrink-0 border-r border-[var(--border-color)] p-8 flex-col gap-8 bg-[var(--bg-content)]">
         <h1 className="text-3xl font-bold text-white">Creative Console</h1>
         <div className="flex flex-col gap-8 flex-1 overflow-y-auto -mr-4 pr-4">
           <div className="flex flex-col gap-3">
@@ -206,18 +251,7 @@ const GeneratorPage: React.FC = () => {
           </div>
            <div>
             <h3 className="text-lg font-semibold text-[var(--text-dim)] mb-3">Style Reference (Optional)</h3>
-            {styleRefImage ? (
-              <div className="relative">
-                <img src={styleRefImage.url} alt="Style Reference" className="w-full h-auto rounded-lg border-2 border-[var(--border-color-light)]" />
-                <button
-                  onClick={handleClearStyleRef}
-                  className="absolute top-2 right-2 bg-black/50 text-white rounded-full h-7 w-7 flex items-center justify-center hover:bg-red-500"
-                  title="Clear Style Reference"
-                >
-                  <span className="material-symbols-outlined text-base">close</span>
-                </button>
-              </div>
-            ) : (
+            <div className="space-y-2">
               <div
                 onClick={() => styleFileInputRef.current?.click()}
                 className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--border-color-light)] p-6 text-center cursor-pointer hover:border-[var(--primary-color)]"
@@ -228,12 +262,32 @@ const GeneratorPage: React.FC = () => {
                   onChange={handleStyleRefChange}
                   className="hidden"
                   accept="image/png, image/jpeg"
+                  multiple
                 />
                 <span className="material-symbols-outlined text-3xl text-[var(--text-dim)]">palette</span>
-                <p className="text-sm font-semibold text-white/90">Upload Style Image</p>
-                <p className="text-xs text-white/60">Guide the AI's artistic direction.</p>
+                <p className="text-sm font-semibold text-white/90">Upload Style Image(s)</p>
+                <p className="text-xs text-white/60">Guide the AI's artistic direction. Up to 5.</p>
               </div>
-            )}
+              {styleRefImages.length > 0 && (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    {styleRefImages.map((s, idx) => (
+                      <div key={s.url} className="relative group rounded overflow-hidden">
+                        <img src={s.url} alt={`Style ${idx+1}`} className="w-full h-auto rounded border-2 border-[var(--border-color-light)]" />
+                        <button
+                          onClick={() => { URL.revokeObjectURL(s.url); setStyleRefImages(prev => prev.filter(x => x.url !== s.url)); }}
+                          className="absolute top-1 right-1 bg-black/50 text-white rounded-full h-6 w-6 hidden group-hover:flex items-center justify-center hover:bg-red-500"
+                          title="Remove"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">close</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={handleClearStyleRefs} className="w-full rounded-md border border-[var(--border-color)] bg-[var(--bg-inset)] py-2 text-sm hover:border-[var(--primary-color)]">Clear All</button>
+                </div>
+              )}
+            </div>
           </div>
           <div>
             <h3 className="text-lg font-semibold text-[var(--text-dim)] mb-3">Character Blueprints</h3>
@@ -289,7 +343,7 @@ const GeneratorPage: React.FC = () => {
           </button>
         </div>
       </aside>
-      <main className="flex-1 p-8 flex flex-col gap-8">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 flex flex-col gap-6 lg:gap-8">
         <header className="flex justify-between items-start">
             <div>
               <h2 className="text-4xl font-bold tracking-tight text-white">To Live Is to Create, To Create Is to Be</h2>
