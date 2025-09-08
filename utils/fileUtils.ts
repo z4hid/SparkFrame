@@ -14,8 +14,9 @@ export const fileToBase64 = (file: File): Promise<string> => {
 
 export const downloadFile = (base64: string, mimeType: string, filename: string) => {
     const link = document.createElement('a');
+    const ensured = filename.toLowerCase().endsWith('.png') ? filename : `${filename.replace(/\.[^./\\]+$/, '')}.png`;
     link.href = `data:${mimeType};base64,${base64}`;
-    link.download = filename;
+    link.download = ensured;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
