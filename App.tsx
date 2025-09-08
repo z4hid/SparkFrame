@@ -181,6 +181,23 @@ const App: React.FC = () => {
     await dbService.putStoryboardScene(newStoryboardScene);
   }, [storyboard]);
 
+  const deleteSceneFromStoryboard = useCallback(async (sceneId: string) => {
+    const sceneToDelete = storyboard.find(s => s.id === sceneId);
+    if (!sceneToDelete) return;
+    if (!window.confirm(`Delete ${sceneToDelete.title || 'this scene'} from storyboard? This cannot be undone.`)) return;
+
+    await dbService.deleteStoryboardScene(sceneId);
+    setStoryboard(prev => prev
+      .filter(s => s.id !== sceneId)
+      .map((s, idx) => ({ ...s, sceneNumber: idx + 1, title: s.title.replace(/^Scene \d+:/, `Scene ${idx + 1}:`) }))
+    );
+
+    if (activeScene?.id === sceneId) {
+      setActiveScene(null);
+      await dbService.setActiveScene(null);
+    }
+  }, [storyboard, activeScene]);
+
   const updateSceneNarrative = useCallback(async (sceneId: string, narrative: string) => {
     const sceneToUpdate = storyboard.find(s => s.id === sceneId);
     if(sceneToUpdate) {
@@ -224,6 +241,7 @@ const App: React.FC = () => {
     updateActiveScene,
     storyboard,
     addSceneToStoryboard,
+    deleteSceneFromStoryboard,
     updateSceneNarrative,
     updateSceneTransition,
     startNewStory,
@@ -264,11 +282,11 @@ const App: React.FC = () => {
           className: '',
           style: {
             margin: '40px',
-            background: '#111714',
+            background: '#0b1220',
             color: '#fff',
             padding: '16px',
             borderRadius: '12px',
-            border: '1px solid #29382f',
+            border: '1px solid #1e293b',
           },
         }}
       />
@@ -277,7 +295,7 @@ const App: React.FC = () => {
       ) : (
         <div className="relative flex size-full min-h-screen flex-col text-white bg-[var(--bg-content)]">
           <Navbar currentPage={currentPage} />
-          <main className="flex-grow flex flex-col">
+          <main className="flex-grow flex flex-col pb-20" role="main" id="main-content">
               {renderPage()}
           </main>
           <Footer/>

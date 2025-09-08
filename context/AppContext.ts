@@ -20,6 +20,7 @@ export const AppContext = React.createContext<AppContextType>({
   updateActiveScene: () => {},
   storyboard: [],
   addSceneToStoryboard: () => {},
+  deleteSceneFromStoryboard: () => {},
   updateSceneNarrative: () => {},
   updateSceneTransition: () => {},
   startNewStory: () => {},

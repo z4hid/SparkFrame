@@ -89,6 +89,7 @@ export interface AppContextType {
   updateActiveScene: (scene: Scene | null) => void;
   storyboard: StoryboardScene[];
   addSceneToStoryboard: (scene: Scene) => void;
+  deleteSceneFromStoryboard: (sceneId: string) => void;
   updateSceneNarrative: (sceneId: string, narrative: string) => void;
   updateSceneTransition: (sceneId: string, transition: TransitionType) => void;
   startNewStory: () => void;
