@@ -127,6 +127,7 @@ export const dbService = {
     deleteCharacter: (id: string) => del(STORES.characters, id),
     getAllCharacters: () => getAll<Character>(STORES.characters),
     putStoryboardScene: (scene: StoryboardScene) => put(STORES.storyboard, scene),
+    deleteStoryboardScene: (id: string) => del(STORES.storyboard, id),
     getAllStoryboardScenes: () => getAll<StoryboardScene>(STORES.storyboard),
     clearStoryboard: () => clearStore(STORES.storyboard),
     getActiveScene: () => getAppState<Scene>('activeScene'),

@@ -5,7 +5,83 @@ import { Character, ReferenceImage } from "../types";
 const IMAGE_MODEL = 'gemini-2.5-flash-image-preview';
 const TEXT_MODEL = 'gemini-2.5-flash';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+// Use direct Gemini SDK calls per official guidance
+const useProxy = false;
+const apiKey = (process.env.API_KEY as string) || '';
+const ai = new GoogleGenAI({ apiKey });
+
+// --- Resilience helpers ---
+const DEFAULT_TIMEOUT_MS = 45000;
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+function withTimeout<T>(promise: Promise<T>, ms = DEFAULT_TIMEOUT_MS): Promise<T> {
+  return new Promise((resolve, reject) => {
+    let finished = false;
+    const timer = setTimeout(() => {
+      if (finished) return;
+      const err: any = new Error('request_timeout');
+      // Provide a synthetic status to help the UI
+      err.status = 408;
+      reject(err);
+    }, ms);
+    promise.then((v) => {
+      finished = true;
+      clearTimeout(timer);
+      resolve(v);
+    }).catch((e) => {
+      finished = true;
+      clearTimeout(timer);
+      reject(e);
+    });
+  });
+}
+
+async function withRetry<T>(task: () => Promise<T>, opts?: { retries?: number; baseMs?: number; }): Promise<T> {
+  const retries = opts?.retries ?? 3;
+  const baseMs = opts?.baseMs ?? 750;
+  let attempt = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    try {
+      return await task();
+    } catch (e: any) {
+      const status = e?.status || e?.cause?.status;
+      const isRate = status === 429 || e?.message === 'rate_limited';
+      const is5xx = status >= 500 && status <= 599;
+      if (attempt >= retries || (!isRate && !is5xx)) throw e;
+      const wait = Math.min(10000, baseMs * Math.pow(2, attempt)) + Math.floor(Math.random() * 250);
+      await delay(wait);
+      attempt += 1;
+    }
+  }
+}
+
+const ensureApiKey = () => {
+  if (!apiKey) {
+    throw new Error("Missing GEMINI_API_KEY. Add it to your .env and restart the dev server.");
+  }
+};
+
+// Prompt preflight validation to avoid policy blocks and low-quality requests
+const BLOCKLIST = [/nudity/i, /violence\s+graphic/i];
+export function validateUserPrompt(p: string): { ok: boolean; reason?: string } {
+  if (p.trim().length < 8) return { ok: false, reason: 'Prompt too short. Add details for setting, subject, camera, lighting.' };
+  if (BLOCKLIST.some(rx => rx.test(p))) return { ok: false, reason: 'Prompt includes content we cannot process.' };
+  return { ok: true };
+}
+
+// Normalize scene description to a structured, cinematic directive
+async function normalizeSceneDescription(raw: string, characters: Character[]): Promise<string> {
+  const blueprints = characters.map(c => `Character: ${c.name}\nBlueprint: ${c.profile}`).join('\n---\n');
+  const prompt = `Rewrite this scene into a compact, single-paragraph directive with sections:\n- Setting (place, time, weather)\n- Subjects (who/what; adhere to blueprints)\n- Camera (lens, angle, framing)\n- Lighting (key, fill, mood)\n- Color/Mood\n- Semantic negatives: no watermark, no text overlays, no extra limbs, no distortions\nKeep it precise and cinematic. Avoid markdown or quotes.\n${blueprints ? `\nBlueprints:\n${blueprints}` : ''}\nScene: "${raw}"`;
+  try {
+    const response = await withRetry(() => withTimeout(ai.models.generateContent({ model: TEXT_MODEL, contents: prompt })));
+    const text = (response.text || '').replace(/["*]/g, '').trim();
+    return text.length > 0 ? text : raw;
+  } catch {
+    return raw;
+  }
+}
 
 /**
  * Constructs a detailed prompt for scene generation, ensuring character consistency.
@@ -30,14 +106,19 @@ const constructScenePrompt = (sceneDescription: string, characters: Character[])
     `;
 };
 
+const BEST_PRACTICES_GUIDE = `Best practices: Be hyper-specific; provide purpose and cinematic camera/lighting; maintain character consistency; iterate in small steps; use semantic negatives like no watermark, no extra limbs, no distortions.`;
 
 export const generateText = async (prompt: string): Promise<string> => {
     try {
-        const response = await ai.models.generateContent({
-            model: TEXT_MODEL,
-            contents: prompt,
-        });
-        return response.text;
+        if (useProxy) {
+            const res = await fetch('/api/text', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt }) });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'text_failed');
+            return data.text;
+        } else {
+            const response = await ai.models.generateContent({ model: TEXT_MODEL, contents: prompt });
+            return response.text;
+        }
     } catch (error) {
         console.error("Error generating text:", error);
         throw new Error("AI text generation failed. Please try again.");
@@ -62,75 +143,78 @@ export const generateInspirationalPrompt = async (): Promise<string> => {
 
 export const generateCharacterPortrait = async (name: string, profile: string): Promise<{ base64Image: string, mimeType: string }> => {
     try {
-        const prompt = `A cinematic, full-body character portrait of ${name}. The background is a neutral, light gray studio backdrop to emphasize the character. ${profile}`;
-        
-        const response = await ai.models.generateContent({
-            model: IMAGE_MODEL,
-            contents: prompt,
-            config: {
-                responseModalities: [Modality.IMAGE, Modality.TEXT],
-            },
-        });
-
-        for (const part of response.candidates?.[0]?.content?.parts || []) {
-            if (part.inlineData) {
-                return {
-                    base64Image: part.inlineData.data,
-                    mimeType: part.inlineData.mimeType,
-                };
+        if (useProxy) {
+            const res = await fetch('/api/characterPortrait', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, profile }) });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'portrait_failed');
+            return { base64Image: data.base64Image, mimeType: data.mimeType };
+        } else {
+            const prompt = `A cinematic, full-body character portrait of ${name}. The background is a neutral, light gray studio backdrop to emphasize the character. ${profile}`;
+            const response = await ai.models.generateContent({ model: IMAGE_MODEL, contents: prompt, config: { responseModalities: [Modality.IMAGE, Modality.TEXT] } });
+            for (const part of response.candidates?.[0]?.content?.parts || []) {
+                if (part.inlineData?.data && part.inlineData?.mimeType?.startsWith('image/')) {
+                    return { base64Image: part.inlineData.data, mimeType: part.inlineData.mimeType };
+                }
             }
+            throw new Error("AI failed to generate a character portrait.");
         }
-        throw new Error("AI failed to generate a character portrait.");
     } catch (error) {
         console.error("Error generating character portrait:", error);
         throw new Error("Failed to generate character portrait. The AI may be experiencing issues.");
     }
 };
 
-export const generateImageFromText = async (prompt: string, characters: Character[], styleImage: { base64: string; mimeType: string } | null): Promise<{ base64Image: string, mimeType: string }> => {
+export const generateImageFromText = async (
+  prompt: string,
+  characters: Character[],
+  styleImages: { base64: string; mimeType: string }[] | null
+): Promise<{ base64Image: string, mimeType: string, fileUrl?: string }> => {
   try {
-    const scenePrompt = constructScenePrompt(prompt, characters);
-    
-    let requestContents: string | { parts: Part[] };
-
-    if (styleImage) {
-        const contentParts: Part[] = [];
-        const stylePrompt = `
-            Use the following image ONLY as an artistic style reference. 
-            Emulate its color palette, lighting, texture, and overall mood. 
-            DO NOT include the content or subjects from the style reference image in your output.
-            The generated image must depict the scene described in the next message.
-        `;
-        contentParts.push({ text: stylePrompt });
-        contentParts.push({
-            inlineData: {
-                data: styleImage.base64,
-                mimeType: styleImage.mimeType,
-            },
+    if (useProxy) {
+        const res = await fetch('/api/generateImage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, characters, styleImages })
         });
-        contentParts.push({ text: scenePrompt });
-        requestContents = { parts: contentParts };
+        const data = await res.json();
+        if (!res.ok) {
+          if (res.status === 429) {
+            const err: any = new Error('rate_limited');
+            err.status = 429;
+            err.meta = data?.usage;
+            throw err;
+          }
+          const err: any = new Error(data.error || 'image_failed');
+          err.status = res.status;
+          throw err;
+        }
+        return { base64Image: data.base64Image, mimeType: data.mimeType, fileUrl: data.fileUrl };
     } else {
-        requestContents = scenePrompt;
+        const normalized = await withRetry(() => withTimeout(normalizeSceneDescription(prompt, characters)));
+        const scenePrompt = constructScenePrompt(normalized, characters);
+        let requestContents: string | { parts: Part[] } = scenePrompt;
+        if (styleImages && styleImages.length > 0) {
+          const parts: Part[] = [
+            { text: `${BEST_PRACTICES_GUIDE}\nUse the following image(s) ONLY as artistic style references. Emulate palette/lighting/texture. Do NOT copy content. Then render the described scene.` }
+          ];
+          for (const img of styleImages) {
+            parts.push({ inlineData: { data: img.base64, mimeType: img.mimeType } } as any);
+          }
+          parts.push({ text: scenePrompt });
+          requestContents = { parts };
+        } else {
+          requestContents = `${BEST_PRACTICES_GUIDE}\n${scenePrompt}`;
+        }
+        const response = await ai.models.generateContent({ model: IMAGE_MODEL, contents: requestContents, config: { responseModalities: [Modality.IMAGE, Modality.TEXT] } });
+        const parts = response.candidates?.[0]?.content?.parts || [];
+        for (const part of parts) {
+          if (part.inlineData?.data && part.inlineData?.mimeType?.startsWith('image/')) {
+            return { base64Image: part.inlineData.data, mimeType: part.inlineData.mimeType };
+          }
+        }
+        const diagText = (parts.find((p: any) => p.text) as any)?.text;
+        throw new Error(diagText ? `Model responded without image: ${diagText.slice(0,180)}...` : "AI failed to generate an image for the scene.");
     }
-    
-    const response = await ai.models.generateContent({
-      model: IMAGE_MODEL,
-      contents: requestContents,
-      config: {
-        responseModalities: [Modality.IMAGE, Modality.TEXT],
-      },
-    });
-
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
-      if (part.inlineData) {
-        return {
-            base64Image: part.inlineData.data,
-            mimeType: part.inlineData.mimeType,
-        };
-      }
-    }
-    throw new Error("AI failed to generate an image for the scene.");
   } catch (error) {
     console.error("Error generating image from text:", error);
     throw new Error("Image generation failed. Please check the prompt or try again.");
@@ -138,41 +222,33 @@ export const generateImageFromText = async (prompt: string, characters: Characte
 };
 
 
-export const editImage = async (base64Image: string, mimeType: string, prompt: string, characters: Character[]): Promise<{ base64Image: string, mimeType: string }> => {
+export const editImage = async (base64Image: string, mimeType: string, prompt: string, characters: Character[], sourceUrl?: string): Promise<{ base64Image: string, mimeType: string, fileUrl?: string }> => {
     try {
-        let characterBlueprints = '';
-        if (characters.length > 0 && characters.some(c => c.identityLocked)) {
-             characterBlueprints = "Reference the following character blueprints to maintain visual consistency for locked characters:\n" + characters
-                .filter(c => c.identityLocked)
-                .map(char => `Character: ${char.name}\nBlueprint: ${char.profile}\n---`)
-                .join('\n');
-        }
-        
-        const fullPrompt = `${prompt}. \n${characterBlueprints}`;
-
-        const contentParts: Part[] = [
-            { text: fullPrompt },
-            { inlineData: { data: base64Image, mimeType: mimeType } }
-        ];
-
-        const response = await ai.models.generateContent({
-            model: IMAGE_MODEL,
-            contents: { parts: contentParts },
-            config: {
-                responseModalities: [Modality.IMAGE, Modality.TEXT],
-            },
-        });
-        
-        const responseParts = response.candidates?.[0]?.content?.parts || [];
-        for (const part of responseParts) {
-            if (part.inlineData) {
-                return {
-                    base64Image: part.inlineData.data,
-                    mimeType: part.inlineData.mimeType,
-                };
+        if (useProxy) {
+            const res = await fetch('/api/editImage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prompt, base64Image, mimeType, sourceUrl, characters }) });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'edit_failed');
+            return { base64Image: data.base64Image, mimeType: data.mimeType, fileUrl: data.fileUrl };
+        } else {
+            let characterBlueprints = '';
+            if (characters.length > 0 && characters.some(c => c.identityLocked)) {
+                 characterBlueprints = "Reference the following character blueprints to maintain visual consistency for locked characters:\n" + characters
+                    .filter(c => c.identityLocked)
+                    .map(char => `Character: ${char.name}\nBlueprint: ${char.profile}\n---`)
+                    .join('\n');
             }
+            const fullPrompt = `${prompt}. \n${characterBlueprints}\nSemantic negatives: no watermark, no text overlays, no distortions, clean output.`;
+            const contentParts: Part[] = [ { text: fullPrompt }, { inlineData: { data: base64Image, mimeType: mimeType } } ];
+            const response = await ai.models.generateContent({ model: IMAGE_MODEL, contents: { parts: contentParts }, config: { responseModalities: [Modality.IMAGE, Modality.TEXT] } });
+            const responseParts = response.candidates?.[0]?.content?.parts || [];
+            for (const part of responseParts) {
+                if (part.inlineData?.data && part.inlineData?.mimeType?.startsWith('image/')) {
+                    return { base64Image: part.inlineData.data, mimeType: part.inlineData.mimeType };
+                }
+            }
+            const diagText = (responseParts.find((p: any) => p.text) as any)?.text;
+            throw new Error(diagText ? `Model responded without image: ${diagText.slice(0,180)}...` : "The AI failed to edit the image as requested.");
         }
-        throw new Error("The AI failed to edit the image as requested.");
     } catch (error) {
         console.error("Error editing image:", error);
         throw new Error("Image editing failed. The AI may have rejected the prompt.");
@@ -207,16 +283,16 @@ export const createCharacterProfile = async (images: { base64Image: string, mime
             The final blueprint should be a concise but comprehensive paragraph that can be easily understood by the AI.
         `;
         
-        const contents = {
-          parts: [...imageParts, { text: prompt }]
+        if (useProxy) {
+            const res = await fetch('/api/createProfile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ images, name, description }) });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'profile_failed');
+            return data.text;
+        } else {
+            const contents = { parts: [...imageParts, { text: prompt }] };
+            const response = await ai.models.generateContent({ model: TEXT_MODEL, contents });
+            return response.text;
         }
-
-        const response = await ai.models.generateContent({
-            model: TEXT_MODEL,
-            contents,
-        });
-
-        return response.text;
     } catch (error) {
         console.error("Error creating character profile:", error);
         throw new Error("Failed to generate character profile from the AI.");
