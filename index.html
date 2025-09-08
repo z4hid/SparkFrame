@@ -11,19 +11,25 @@
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <style type="text/tailwindcss">
       :root {
-        --primary-color: #38e07b;
-        --bg-main: #111714;
-        --bg-content: #18201C;
-        --bg-inset: #111714;
-        --border-color: #29382f;
-        --border-color-light: #3d5245;
-        --text-dim: #9eb7a8;
-        --checkbox-tick-svg: url('data:image/svg+xml,%3csvg viewBox=%270 0 16 16%27 fill=%27rgb(17,23,20)%27 xmlns=%27http://www.w3.org/2000/svg%27%3e%3cpath d=%27M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z%27/%3e%3c/svg%3e');
+        --primary-color: #60a5fa; /* blue-400 */
+        --bg-main: #0b1220; /* deep navy */
+        --bg-content: #0f172a; /* slate-900 */
+        --bg-inset: #0b1220;
+        --border-color: #1e293b; /* slate-800 */
+        --border-color-light: #334155; /* slate-700 */
+        --text-dim: #94a3b8; /* slate-400 */
+        --checkbox-tick-svg: url('data:image/svg+xml,%3csvg viewBox=%270 0 16 16%27 fill=%27rgb(11,18,32)%27 xmlns=%27http://www.w3.org/2000/svg%27%3e%3cpath d=%27M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z%27/%3e%3c/svg%3e');
       }
       * {
         transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
         transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
         transition-duration: 200ms;
+      }
+      :root { color-scheme: dark; }
+      :focus:not(:focus-visible) { outline: none; box-shadow: none; }
+      :focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+      @media (prefers-reduced-motion: reduce) {
+        * { transition-duration: 1ms !important; animation-duration: 1ms !important; }
       }
        /* Custom Scrollbar for Webkit Browsers */
       ::-webkit-scrollbar {
@@ -55,7 +61,7 @@
         display: block;
       }
       .grid-bg {
-        background-image: linear-gradient(to right, #1a221a 1px, transparent 1px), linear-gradient(to bottom, #1a221a 1px, transparent 1px);
+        background-image: linear-gradient(to right, #162036 1px, transparent 1px), linear-gradient(to bottom, #162036 1px, transparent 1px);
         background-size: 40px 40px;
       }
 
@@ -67,6 +73,17 @@
       .transition-fade { animation: fadeIn 0.6s ease-in-out; }
       .transition-slide { animation: slideIn 0.6s ease-in-out; }
       .transition-dissolve { animation: dissolveIn 0.6s ease-in-out; }
+      /* Simple speech bubble tails */
+      .bubble-tail::after {
+        content: '';
+        position: absolute;
+        width: 0; height: 0;
+        border: 10px solid transparent;
+      }
+      .bubble-tail.n::after { bottom: 100%; left: 20px; border-bottom-color: white; }
+      .bubble-tail.s::after { top: 100%; left: 20px; border-top-color: white; }
+      .bubble-tail.e::after { left: 100%; top: 20px; border-left-color: white; }
+      .bubble-tail.w::after { right: 100%; top: 20px; border-right-color: white; }
     </style>
   <script type="importmap">
 {

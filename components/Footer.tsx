@@ -51,7 +51,7 @@ const Footer: React.FC = () => {
                     </div>
                 </div>
                 <div className="mt-8 border-t border-[var(--border-color)] pt-8 text-center">
-                     <p className="text-xs text-[var(--text-dim)]">"To Live Is to Create, To Create Is to Be" - © 2025 <a href="https://github.com/z4hid" target="_blank" rel="noopener noreferrer" className="text-white hover:text-[var(--primary-color)]">Zahid Hasan</a></p>
+                     <p className="text-xs text-[var(--text-dim)]">"To Live Is to Create, To Create Is to Be" - © <a href="https://github.com/z4hid" target="_blank" rel="noopener noreferrer" className="text-white hover:text-[var(--primary-color)]">Zahid Hasan</a></p>
                 </div>
             </div>
         </footer>
